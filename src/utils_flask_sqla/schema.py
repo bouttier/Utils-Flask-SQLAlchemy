@@ -10,6 +10,7 @@ class SmartRelationshipsMixin:
 
     * Nested, RelatedList and Related fields
     * all fields with exclude=True in their metadata (e.g. ``fields.String(metadata={'exclude': True})``)
+    * all deferred fields (e.g. ``deferred(db.Column(db.String))``)
     Adding only Nested fields to ``only`` will not exclude others fields and serialize specified Nested fields.
     Adding exclude=True fields to ``only`` will serialize only specified fields (default marshmallow behaviour).
     You can use '+field_name' syntax on `only` to serialize default excluded fields (with metadata exclude = True) without other fields.
@@ -57,8 +58,21 @@ class SmartRelationshipsMixin:
 
         only = kwargs.pop("only", None)
         only = set(only) if only is not None else set()
+        #additional_fields = {field[1:] for field in only if field.startswith("+")}
+
+        
+
+        requested = kwargs.pop("requested", None)
+        print("requested", self.opts, requested, only)
+        requested = set(requested) if requested is not None else set()
+        requested |= {field[1:]} for field in only if field.startswith(">")}
+
+        only = {field for field in only if not field.startswith(">")}
+
+
         additional_fields = {field[1:] for field in only if field.startswith("+")}
-        only = {field[1:] if field.startswith("+") else field for field in only}
+        #only = {field[1:] if field.startswith("+") else field for field in only}
+        only = {field.removeprefix("+") for field in only}
         firstlevel_only = {field.split(".", 1)[0] for field in only}
         exclude = kwargs.pop("exclude", None)
         exclude = set(exclude) if exclude is not None else set()

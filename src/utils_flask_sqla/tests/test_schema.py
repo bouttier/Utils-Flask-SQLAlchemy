@@ -438,3 +438,58 @@ class TestSmartRelationshipsMixin:
             DeferredSchema(only=["+b"]).dump(d), {"pk": 1, "a": "A", "b": "B"}
         )
         TestCase().assertDictEqual(DeferredSchema(only=["b"]).dump(d), {"b": "B"})
+
+    def test_restrict(self):
+        class ParentRestrictSchema(SmartRelationshipsMixin, ma.Schema):
+            a = ma.fields.String()
+            b = ma.fields.String()
+            c = ma.fields.String()
+            d = ma.fields.String()
+            child = ma.fields.Nested("ChildRestrictSchema")
+
+        class ChildRestrictSchema(SmartRelationshipsMixin, ma.Schema):
+            a = ma.fields.String()
+            b = ma.fields.String(metadata={"exclude": True})
+            c = ma.fields.String(metadata={"exclude": True})
+            parent = ma.fields.Nested("ParentRestrictSchema")
+
+        d = {"a": "A", "b": "B", "c": "C", "d": "D", "child": {"a": "A", "b": "B", "c": "C"}}
+        only = ["a", "b", "+c", "child.+b"]
+
+        # Default behaviour
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only).dump(d), {"a": "A", "b": "B", "c": "C", "child": {"a": "A", "b": "B"}}
+        )
+        # Request fewer fields
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "b"]).dump(d), {"a": "A", "b": "B"}
+        )
+        # Request additionnal field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "c"]).dump(d), {"a": "A", "c": "C"}
+        )
+        # Request unauthorized field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "d"]).dump(d), {"a": "A"}
+        )
+        # Request unexisting field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "e"]).dump(d), {"a": "A"}
+        )
+        # Request relationship field
+        # FIXME if this case there is no way to easily know if child.a is an accepred field or not :-/
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "child.a"]).dump(d), {"a": "A", "child": {"a": "A"}}
+        )
+        # Request relationship additionnal field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "child.b"]).dump(d), {"a": "A", "child": {"b": "B"}}
+        )
+        # Request relationship unauthorized field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "child.c"]).dump(d), {"a": "A"}
+        )
+        # Request relationship unexisting field
+        TestCase().assertDictEqual(
+            ParentRestrictSchema(only=only, requested=["a", "child.d"]).dump(d), {"a": "A"}
+        )
